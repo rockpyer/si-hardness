@@ -1,125 +1,66 @@
-# Monterey Hardness — companion site
+# Monterey Hardness
 
-Live data explorer for **Weller & Behl (2026)** — *Unique hardness and porosity
-patterns in siliceous rocks of the Monterey Formation, Belridge Oil Field, CA*
-(SPE-232849).
+**Interactive data companion to Weller & Behl (2026)**
+*Unique hardness and porosity patterns in siliceous rocks of the Monterey Formation, Belridge Oil Field, California*
+SPE-232849
 
-Static site. No build step. No external dependencies. Hosted on GitHub Pages
-at **si-hardness.ryweller.com**.
+🌐 **[si-hardness.ryweller.com](https://si-hardness.ryweller.com)**
 
-## What's in here
+---
+
+## About
+
+This is the open-data companion site to a 2026 SPE manuscript presenting 1,546 rebound-hardness (Leeb HLD) measurements from siliceous mudrocks of the Monterey Formation, collected across four cored wells in the Belridge Oil Field, San Joaquin Basin, California.
+
+The site provides an interactive explorer for the full dataset — filter by silica phase, depth, porosity, composition, and well; visualize any combination of variables; and download a filtered CSV or reproduce the paper's key figures with one click.
+
+### Key findings
+
+- **Composition is the first-order control on hardness** within every burial/diagenetic group — stronger than burial depth or porosity alone
+- The opal-A → opal-CT transition produces the largest single hardness jump (+47% HLD median)
+- Opal-CT resists mechanical compaction with burial, making it uniquely burial-resistant
+- Within each phase, porosity *positively* correlates with hardness — an inversion of the classical porosity-strength relationship, driven by detrital clay content
+- 12k′-quartz rocks gain 25–30% HLD over 6k′-quartz without further phase change, likely driven by clay diagenesis and early oil catagenesis
+
+## Dataset
+
+| Field | Description |
+|-------|-------------|
+| Rebound hardness (HLD) | Leeb rebound, 1,546 measurements |
+| Helium porosity (%) | Core-plug, paired subset |
+| Silica (%) | Biogenic + diagenetic, XRD |
+| Detritus (%) | Clay + quartz detritus |
+| Silica phase | opal-A · mixed A-CT · opal-CT · 6k′-quartz · 12k′-quartz |
+| Depth (ft TVD) | 800–12,600 ft |
+| Well | 4 cores, Belridge Oil Field |
+
+Full data available as [`assets/data.csv`](assets/data.csv) and [`assets/data.json`](assets/data.json).
+
+## Cite this work
+
+> Weller, R. W., & Behl, R. J. (2026). Unique hardness and porosity patterns in siliceous rocks of the Monterey Formation, Belridge Oil Field, California. *SPE-232849.*
+
+Licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) — you are free to share and adapt with attribution and share-alike.
+
+## Authors
+
+**R. W. Weller** · California State University, Long Beach · [LinkedIn](https://www.linkedin.com/in/ryweller/)
+
+**R. J. Behl** · California State University, Long Beach · [LinkedIn](https://www.linkedin.com/in/richard-rick-behl-6b75825/)
+
+### Acknowledgements
+
+This research was financially supported by the affiliate companies of the CSULB MARS Project (Monterey and Related Sediments) without restriction. Aera Energy LLC and California Resources Corporation graciously supplied core, data, and equipment in support of this study.
+
+## Repository
+
+Static site — no build step, no external dependencies. Open `index.html` directly in a browser or serve with any static host.
 
 ```
-site/
-├── index.html              # the page (dataset embedded inline)
-├── CNAME                   # custom domain for GitHub Pages
-├── .nojekyll               # tells Pages not to mangle filenames
-├── README.md               # this file
-└── assets/
-    ├── styles.css          # all styling, no preprocessor
-    ├── main.js             # filtering, charting, R², CSV download
-    ├── data.json           # 1,546 measurements (also inlined in index.html)
-    └── data.csv            # same data as flat CSV (download button target)
+index.html          # full page (dataset embedded inline)
+assets/
+├── styles.css      # all styling
+├── main.js         # filtering, charting, export
+├── data.json       # 1,546 measurements
+└── data.csv        # same data, flat CSV
 ```
-
-## Run locally
-
-Just open `index.html` in a browser. Because the dataset is inlined in the
-HTML, no local server is needed — `file://` works.
-
-If you'd rather serve it:
-
-```sh
-cd site
-python3 -m http.server 8000
-# then visit http://localhost:8000
-```
-
-## Deploy to GitHub Pages with custom domain
-
-1. **Push this folder to a GitHub repo.** A common pattern:
-   - Repo: `ryweller/monterey-hardness` (or any name)
-   - Branch: `main`
-   - Either put these files at the repo root OR keep them in `site/` and
-     point Pages at that folder.
-
-2. **Enable GitHub Pages.**
-   In the repo: *Settings → Pages → Build and deployment*
-   - Source: *Deploy from a branch*
-   - Branch: `main` / `/` (root)  — or `main` / `/site` if you keep this
-     folder structure.
-
-3. **Custom domain.**
-   - GitHub Pages → *Custom domain* → enter `si-hardness.ryweller.com` → Save.
-   - Tick *Enforce HTTPS* once the cert provisions (usually a few minutes).
-   - The `CNAME` file in this folder pins the domain so Pages doesn't drop it
-     on the next deploy.
-
-4. **DNS at your registrar.**
-   For `si-hardness.ryweller.com`, add a single record on `ryweller.com`'s DNS:
-
-   ```
-   Type   Host          Value                 TTL
-   CNAME  si-hardness   ryweller.github.io.   3600
-   ```
-
-   (Replace `ryweller` with your GitHub username if different.)
-
-5. **Verify.** Wait for DNS to propagate (5–60 minutes). Visit
-   `https://si-hardness.ryweller.com`. You should see the full site.
-
-## Updating the data
-
-The dataset is embedded in `index.html` so the page works on `file://`. To
-update:
-
-1. Re-export `assets/data.json` from the source CSV (any pandas/csv script
-   that produces the same row shape).
-2. Replace the inlined dataset in `index.html` between the
-   `<script type="application/json" id="dataset">…</script>` tags with the
-   new JSON, OR delete that block entirely and the page will fall back to
-   `fetch("assets/data.json")` automatically when served over http(s).
-
-The shape of each row in `data.json`:
-
-```json
-{
-  "w": "548D1-35",          // well
-  "d": 3467.5,              // depth (ft)
-  "sl": 72.6,               // silica %  (biogenic + diagenetic)
-  "dt": 27.4,               // detritus %
-  "p":  "opal-CT",          // phase: opal-A | mixed | opal-CT | 6k-quartz | 12k-quartz
-  "g":  "low",              // detritus group: low | mod | high
-  "hld": 662,               // avg HLD
-  "sd":  18.4,              // HLD std dev
-  "x":   1,                 // XRD-confirmed (1) or not (0)
-  "k":   0.4,               // perm Kair (md)
-  "o":   49.5,              // helium porosity %
-  "gd":  2.34,              // grain density (g/cc)
-  "t":   3.1,               // TOC (%)
-  "q":   0,                 // bad-HLD-fracs flag: 0=very good, 1=good, 2/3=poor
-  "u":   45.2               // UCS (MPa, Lee)
-}
-```
-
-Any of the fields besides `w`, `d`, `p`, and `hld` may be `null` for a row.
-
-## What the page does
-
-- **Hero**: Fig 4 (HLD vs silica %) on the full unfiltered dataset, colored by
-  silica phase, with within-phase OLS trend lines.
-- **Five conclusions**: the manuscript's five conclusion points. Click any
-  finding to jump to a matching preset in the explorer.
-- **Explorer**: real-time filtering on phase, well, depth, porosity, silica %,
-  detritus group, data quality, plus advanced filters (XRD-confirmed only,
-  TOC, perm). Axis selectors for X / Y / color. Trend-line toggle, group
-  means, log-scale toggles, swap axes, PNG/SVG/CSV export. Active-filter pill
-  strip. Within-phase R² badge updated live. Phase composition bar updated
-  live.
-- **Share view**: encodes the full filter+axis state into a URL hash so any
-  view is shareable.
-
-## License
-
-Data: © Weller & Behl. Cite SPE-232849 if you use this dataset in research.
-Site code: do whatever's useful; no warranty.

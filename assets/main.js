@@ -284,10 +284,10 @@ function initWithData(D) {
   /* ---------- presets ---------- */
   const PRESETS = {
     "fig4":        () => { Object.assign(STATE.axes, {x:"silica", y:"hld",   c:"phase"}); STATE.trends=true; STATE.means=false; STATE.logX=false; STATE.logY=false; resetFilters(); },
-    "fig7":        () => { Object.assign(STATE.axes, {x:"por",    y:"hld",   c:"phase"}); STATE.trends=true; STATE.means=false; STATE.logX=false; STATE.logY=false; resetFilters(); },
+    "fig7":        () => { Object.assign(STATE.axes, {x:"hld",    y:"por",   c:"phase"}); STATE.trends=true; STATE.means=false; STATE.logX=false; STATE.logY=false; resetFilters(); },
     "phase-jumps": () => { Object.assign(STATE.axes, {x:"depth",  y:"hld",   c:"phase"}); STATE.trends=false; STATE.means=true; STATE.logX=false; STATE.logY=false; resetFilters(); },
     "opalct":      () => { Object.assign(STATE.axes, {x:"silica", y:"hld",   c:"phase"}); STATE.trends=true; STATE.means=false; STATE.logX=false; STATE.logY=false; resetFilters(); selectPhase("opal-CT"); },
-    "q12":         () => { Object.assign(STATE.axes, {x:"silica", y:"hld",   c:"phase"}); STATE.trends=true; STATE.means=false; STATE.logX=false; STATE.logY=false; resetFilters(); selectPhase("12k-quartz"); },
+    "quartz-all":  () => { Object.assign(STATE.axes, {x:"silica", y:"hld",   c:"phase"}); STATE.trends=true; STATE.means=false; STATE.logX=false; STATE.logY=false; resetFilters(); selectPhases(["6k-quartz","12k-quartz"]); },
   };
   function resetFilters() {
     STATE.phases = new Set(PHASE_ORDER);
@@ -300,6 +300,10 @@ function initWithData(D) {
   }
   function selectPhase(p) {
     STATE.phases = new Set([p]);
+    syncControls();
+  }
+  function selectPhases(arr) {
+    STATE.phases = new Set(arr);
     syncControls();
   }
   function syncControls() {
@@ -561,6 +565,7 @@ function initWithData(D) {
       if (!STATE.phases.has(d.p)) return false;
       if (!STATE.wells.has(d.w)) return false;
       if (d.g && !STATE.detgrp.has(d.g)) return false;
+      if (d.q === 2 || d.q === 3) return false;  // always exclude Poor quality
       if (d.q != null && !STATE.quality.has(d.q)) return false;
       if (STATE.xrdOnly && !d.x) return false;
       if (d.d != null && (d.d < r.depth[0] || d.d > r.depth[1])) return false;
@@ -729,8 +734,16 @@ function initWithData(D) {
       if (cId === "quality") {
         if (d.q === 0) return "#3B8A3F";
         if (d.q === 1) return "#B78323";
-        if (d.q == null) return "#888";
-        return "#8A2F24";
+        return "#888";
+      }
+      if (cId === "por") {
+        if (d.o == null) return "#B0A898";
+        const t = Math.max(0, Math.min(1, d.o / 60));
+        // low por = warm brown, high por = cool blue
+        const r = Math.round(180 - t * 120);
+        const g = Math.round(100 + t * 40);
+        const b = Math.round(60 + t * 160);
+        return `rgb(${r},${g},${b})`;
       }
       return "#888";
     }
@@ -785,21 +798,20 @@ function initWithData(D) {
     });
     svg.appendChild(ptsGroup);
 
-    // trend lines per phase
+    // always compute R² per phase; only draw lines if showTrend
     const r2bp = {};
-    if (showTrend) {
-      const byPhase = {};
-      pts.forEach(({d, x, y}) => {
-        if (!byPhase[d.p]) byPhase[d.p] = [];
-        byPhase[d.p].push([x, y]);
-      });
-      PHASE_ORDER.forEach(ph => {
-        const arr = byPhase[ph];
-        if (!arr || arr.length < 3) return;
-        const fit = linreg(arr);
-        if (!fit) return;
-        r2bp[ph] = fit;
-        // draw line across this phase's x-range
+    const byPhase = {};
+    pts.forEach(({d, x, y}) => {
+      if (!byPhase[d.p]) byPhase[d.p] = [];
+      byPhase[d.p].push([x, y]);
+    });
+    PHASE_ORDER.forEach(ph => {
+      const arr = byPhase[ph];
+      if (!arr || arr.length < 3) return;
+      const fit = linreg(arr);
+      if (!fit) return;
+      r2bp[ph] = fit;
+      if (showTrend) {
         const xs = arr.map(p => p[0]);
         const xa = Math.max(xlo, Math.min(...xs));
         const xb = Math.min(xhi, Math.max(...xs));
@@ -812,8 +824,8 @@ function initWithData(D) {
         ln.setAttribute("stroke-width", "1.6");
         ln.setAttribute("stroke-opacity", "0.85");
         svg.appendChild(ln);
-      });
-    }
+      }
+    });
 
     // means / centroids
     if (showMeans) {
@@ -870,36 +882,60 @@ function initWithData(D) {
     strip.innerHTML = out.join("");
   }
 
-  /* ---------- composition bar ---------- */
-  function renderCompBar(filtered) {
+  /* ---------- phase summary (count + R²) ---------- */
+  function renderCompBar(filtered, r2bp) {
     const bar = document.getElementById("compBar");
+    if (!bar) return;
     bar.innerHTML = "";
     const counts = {};
     PHASE_ORDER.forEach(p => counts[p] = 0);
     filtered.forEach(d => { if (counts[d.p] != null) counts[d.p]++; });
     const total = filtered.length || 1;
+    const hasAny = PHASE_ORDER.some(p => counts[p] > 0);
+    if (!hasAny) return;
+    const wrap = document.createElement("div");
+    wrap.className = "phase-summary";
     PHASE_ORDER.forEach(p => {
       const n = counts[p];
       if (!n) return;
-      const seg = document.createElement("div");
-      seg.className = "seg";
-      seg.style.width = (n / total * 100) + "%";
-      seg.style.background = PHASE_COLOR[p];
-      seg.dataset.lbl = `${PHASE_LABEL[p]}: ${n} (${(n/total*100).toFixed(1)}%)`;
-      bar.appendChild(seg);
+      const fit = r2bp && r2bp[p];
+      const row = document.createElement("div");
+      row.className = "ps-row";
+      const pct = (n / total * 100).toFixed(0);
+      const r2Str = (fit && fit.n >= 3) ? `R²&nbsp;${fit.r2.toFixed(2)}` : `—`;
+      row.innerHTML = `<span class="ps-dot" style="background:${PHASE_COLOR[p]}"></span>` +
+        `<span class="ps-name">${PHASE_LABEL[p]}</span>` +
+        `<span class="ps-n">n=${n.toLocaleString()} <span class="ps-pct">(${pct}%)</span></span>` +
+        `<span class="ps-r2">${r2Str}</span>`;
+      wrap.appendChild(row);
     });
+    bar.appendChild(wrap);
   }
 
-  /* ---------- preview table ---------- */
+  /* ---------- preview table (sortable) ---------- */
+  const tableSort = { col: null, dir: 1 };
+  let lastFiltered = [];
+
   function renderTable(filtered) {
+    lastFiltered = filtered;
+    let rows = [...filtered];
+    if (tableSort.col) {
+      rows.sort((a, b) => {
+        let av = a[tableSort.col], bv = b[tableSort.col];
+        if (av == null) av = tableSort.dir > 0 ? Infinity : -Infinity;
+        if (bv == null) bv = tableSort.dir > 0 ? Infinity : -Infinity;
+        if (typeof av === "string") return tableSort.dir * av.localeCompare(bv);
+        return tableSort.dir * (av - bv);
+      });
+    }
     const tbl = document.getElementById("tblBody");
     tbl.innerHTML = "";
-    const top = filtered.slice(0, 20);
+    const top = rows.slice(0, 20);
     top.forEach(d => {
       const tr = document.createElement("tr");
       const porCell = (d.o == null) ? "—" : d.o.toFixed(1);
-      const qPill = (d.q == null) ? "—" :
-        `<span class="q-pill q${d.q === 3 ? 2 : d.q}">${Q_LABEL[d.q === 3 ? 2 : d.q]}</span>`;
+      const qLabel = d.q === 0 ? "Very good" : d.q === 1 ? "Good" : "—";
+      const qPill = d.q != null ? `<span class="q-pill q${d.q}">${qLabel}</span>` : "—";
       tr.innerHTML = `
         <td>${d.w}</td>
         <td>${nf(d.d, 1)}</td>
@@ -913,21 +949,45 @@ function initWithData(D) {
     });
     document.getElementById("tblNote").textContent =
       `first ${top.length} of ${filtered.length.toLocaleString()} rows shown`;
+    // update sort indicators
+    document.querySelectorAll("th.sortable").forEach(th => {
+      const ind = th.querySelector(".sort-ind");
+      if (!ind) return;
+      ind.textContent = th.dataset.col === tableSort.col
+        ? (tableSort.dir > 0 ? " ▲" : " ▼") : "";
+    });
   }
 
+  // bind sortable header clicks once
+  document.querySelectorAll("th.sortable").forEach(th => {
+    th.style.cursor = "pointer";
+    th.addEventListener("click", () => {
+      if (tableSort.col === th.dataset.col) {
+        tableSort.dir *= -1;
+      } else {
+        tableSort.col = th.dataset.col;
+        tableSort.dir = 1;
+      }
+      renderTable(lastFiltered);
+    });
+  });
+
   /* ---------- R² strip + single-phase callout ---------- */
-  function updateR2(r2bp) {
+  function updateR2(r2bp, phaseCounts) {
     document.querySelectorAll("#r2Badge .r2-row").forEach(row => {
       const ph = row.dataset.phase;
       const fit = r2bp[ph];
+      const n = (phaseCounts && phaseCounts[ph]) || 0;
       const valEl = row.querySelector(".val");
-      // include n= in every row when fit available
+      const cntEl = row.querySelector(".cnt");
+      if (cntEl) cntEl.textContent = n > 0 ? `n=${n.toLocaleString()}` : "";
+      row.style.display = n > 0 ? "" : "none";
       if (fit && fit.n >= 3) {
-        valEl.textContent = fit.r2.toFixed(2) + " · n=" + fit.n;
+        valEl.textContent = "R² " + fit.r2.toFixed(2);
         row.classList.remove("muted");
       } else {
-        valEl.textContent = "—";
-        row.classList.add("muted");
+        valEl.textContent = n >= 3 ? "—" : "";
+        row.classList.toggle("muted", true);
       }
     });
 
@@ -1230,9 +1290,14 @@ function initWithData(D) {
       document.getElementById("explorerChart").setAttribute("viewBox", "0 0 760 420");
     }
 
+    // compute phase counts for summary
+    const phaseCounts = {};
+    PHASE_ORDER.forEach(p => phaseCounts[p] = 0);
+    filtered.forEach(d => { if (phaseCounts[d.p] != null) phaseCounts[d.p]++; });
+
     bindTooltip(document.getElementById("explorerChart"));
-    updateR2(explorerResult.r2);
-    renderCompBar(filtered);
+    updateR2(explorerResult.r2, phaseCounts);
+    renderCompBar(filtered, explorerResult.r2);
     renderTable(filtered);
     buildPillStrip();
     updateMobileBadge(filtered.length);

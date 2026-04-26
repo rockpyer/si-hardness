@@ -1,0 +1,9 @@
+# Local dev notes — not for public repo
+NOTES.md
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
