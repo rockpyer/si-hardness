@@ -35,7 +35,7 @@ a:hover { text-decoration: underline; }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
 h1, h2, h3 { font-family: var(--serif); color: var(--ink);
   letter-spacing: -0.01em; font-weight: 600; }
-h1 { font-size: 44px; line-height: 1.08; margin: 0 0 14px; }
+h1 { font-size: 38px; line-height: 1.08; margin: 0 0 14px; }
 h2 { font-size: 28px; line-height: 1.15; margin: 0 0 10px; }
 h3 { font-size: 17px; margin: 0 0 8px; font-weight: 600; }
 .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px;
@@ -351,6 +351,14 @@ table tr:hover td { background: var(--line-2); }
 .q-pill.q0 { background: rgba(59,138,63,0.18); color: #235924; }
 .q-pill.q1 { background: rgba(183,131,35,0.20); color: #7a560e; }
 .q-pill.q2 { background: rgba(138,47,36,0.20); color: #7a231a; }
+
+/* ---- CORE FIGURE (inside explorer wrap) ---- */
+.core-fig { margin: 24px 0 0; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--line); background: var(--ink); }
+.core-fig img { width: 100%; display: block; }
+.core-fig figcaption { padding: 10px 16px 13px; font-family: var(--mono); font-size: 11px;
+  color: #A09890; line-height: 1.55; }
+.core-fig figcaption strong { color: #D6CFC4; }
 
 /* ---- FOOTER / CITATION ---- */
 footer { background: var(--ink); color: #D6CFC4; padding: 48px 0 40px;
