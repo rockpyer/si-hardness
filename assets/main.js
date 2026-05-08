@@ -373,10 +373,17 @@ function initWithData(D) {
       tip.addEventListener("mouseenter", show);
       tip.addEventListener("mouseleave", hide);
     }
+    fn.addEventListener("click", e => {
+      e.stopPropagation();
+      fn.classList.toggle("open");
+    });
     fn.addEventListener("keydown", e => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn.classList.toggle("open"); }
       if (e.key === "Escape") fn.classList.remove("open");
     });
+  });
+  document.addEventListener("click", () => {
+    document.querySelectorAll("sup.fn.open").forEach(fn => fn.classList.remove("open"));
   });
 
   /* ---------- mobile filter drawer ---------- */
